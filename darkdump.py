@@ -21,9 +21,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-# Please note, this code sucks. I had to update it to a new API with limited time, so I just threw it together. 
+# Please note, this code sucks. I had to update it to a new API with limited time, so I just threw it together.
 
-import sys 
+import sys
+
 sys.dont_write_bytecode = True
 
 __author__ = 'Josh Schiavone'
@@ -36,16 +37,17 @@ import os
 import time
 import argparse
 import random
-
+import csv
 from headers.agents import Headers
 from banner.banner import Banner
-
+import datetime
 notice = '''
 Note: 
     This tool is not to be used for illegal purposes.
     The author is not responsible for any misuse of Darkdump.
     May God bless you all. 
 '''
+
 
 class Colors:
     # Console colors
@@ -59,6 +61,7 @@ class Colors:
     GR = '\033[37m'  # gray
     BOLD = '\033[1m'
     END = '\033[0m'
+
 
 class Configuration:
     DARKDUMP_ERROR_CODE_STANDARD = -1
@@ -79,6 +82,7 @@ class Configuration:
     __darkdump_api__ = "https://ahmia.fi/search/?q="
     __proxy_api__ = "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=elite"
 
+
 class Platform(object):
     def __init__(self, execpltf):
         self.execpltf = execpltf
@@ -97,15 +101,19 @@ class Platform(object):
             if sys.platform == "darwin":
                 cfg.DARKDUMP_OS_DARWIN = True
                 print(clr.BOLD + clr.W + "Operating System: " + clr.G + sys.platform + clr.END)
-        else: pass
+        else:
+            pass
 
     def clean_screen(self):
         cfg = Configuration()
         if self.execpltf:
             if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
                 os.system('clear')
-            else: os.system('cls')
-        else: pass
+            else:
+                os.system('cls')
+        else:
+            pass
+
 
 class Proxies(object):
     def __init__(self):
@@ -118,16 +126,18 @@ class Proxies(object):
                 if line:
                     proxy = line.split(':')
                     self.proxy["http"] = "http://" + proxy[0] + ':' + proxy[1]
-        else: pass
-    
+        else:
+            pass
+
     def get_proxy(self):
         return self.proxy["http"]
 
     def get_proxy_dict(self):
         return self.proxy
 
+
 class Darkdump(object):
-    def crawl(self, query, amount):      
+    def crawl(self, query, amount):
         clr = Colors()
         prox = Proxies()
 
@@ -137,8 +147,8 @@ class Darkdump(object):
             proxy = prox.get_proxy()
             print(clr.BOLD + clr.P + "~:~ Using Proxy: " + clr.C + proxy + clr.END + '\n')
             page = requests.get(Configuration.__darkdump_api__ + query, proxies=prox.get_proxy_dict())
-        else: 
-            page = requests.get(Configuration.__darkdump_api__ + query) 
+        else:
+            page = requests.get(Configuration.__darkdump_api__ + query)
         page.headers = headers
 
         soup = BeautifulSoup(page.content, 'html.parser')
@@ -149,25 +159,48 @@ class Darkdump(object):
         for iterator in range(res_length):
             Configuration.descriptions.append(second_results[iterator].find('p').text)
             Configuration.urls.append(second_results[iterator].find('cite').text)
-        # Remove duplicates
-        Configuration.descriptions = list(dict.fromkeys(Configuration.descriptions))
-        Configuration.urls = list(dict.fromkeys(Configuration.urls))
+
         try:
             if len(Configuration.descriptions) >= Configuration.DARKDUMP_MIN_DATA_RETRIEVE_LENGTH:
                 for iterator in range(amount):
                     site_url = Configuration.urls[iterator]
                     site_description = Configuration.descriptions[iterator]
-                    print(clr.BOLD + clr.G + f"[+] Website: {site_description}\n\t> Onion Link: {clr.R}{site_url}\n" + 
-                        clr.END)
+                    print(clr.BOLD + clr.G + f"[+] Website: {site_description}\n\t> Onion Link: {clr.R}{site_url}\n" +
+                          clr.END)
             else:
                 print(clr.BOLD + clr.R + "[!] No results found." + clr.END)
         except IndexError as ie:
             print(clr.BOLD + clr.O + f"[~] No more results to be shown ({ie}): " + clr.END)
 
+        # Combine descriptions and URLs into a list of tuples
+        data = [(site_description, site_url) for site_description, site_url in
+                zip(Configuration.descriptions, Configuration.urls)]
+
+        # Specify the CSV file name
+        #csv_file_name = 'darkdump_results.csv'
+        # 获取当前日期时间并将其格式化为字符串
+        current_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        # 创建CSV文件名，将当前日期时间添加到文件名中
+        csv_file_name = f'darkdump_results_{current_datetime}.csv'
+        # Write the data to the CSV file with UTF-8 encoding
+        with open(csv_file_name, 'w', newline='', encoding='utf-8') as csv_file:
+            csv_writer = csv.writer(csv_file)
+
+            # Write the header row
+            csv_writer.writerow(['Description', 'URL'])
+
+            # Write the data rows
+            csv_writer.writerows(data)
+
+        print(f'Data has been saved to {csv_file_name}')
+
+
+
 def darkdump_main():
     clr = Colors()
     cfg = Configuration()
-    bn = Banner() 
+    bn = Banner()
     prox = Proxies()
 
     Platform(True).clean_screen()
@@ -177,7 +210,8 @@ def darkdump_main():
     print(notice)
     time.sleep(1.3)
     # Set up argument parser
-    parser = argparse.ArgumentParser(description="Darkdump is a tool for searching the deep web for specific keywords. Made by yours truly.")
+    parser = argparse.ArgumentParser(
+        description="Darkdump is a tool for searching the deep web for specific keywords. Made by yours truly.")
     parser.add_argument("-v",
                         "--version",
                         help="returns darkdump's version",
@@ -201,20 +235,23 @@ def darkdump_main():
 
     if args.version:
         print(clr.BOLD + clr.B + f"Darkdump Version: {__version__}\n" + clr.END)
-    
-    if args.proxy: 
+
+    if args.proxy:
         Configuration.DARKDUMP_PROXY = True
 
     if args.query and args.amount:
         print(clr.BOLD + clr.B + f"Searching For: {args.query} and showing {args.amount} results...\n" + clr.END)
         Darkdump().crawl(args.query, args.amount)
 
+
     elif args.query:
         print(clr.BOLD + clr.B + f"Searching For: {args.query} and showing 10 results...\n" + clr.END)
         Darkdump().crawl(args.query, 10)
 
     else:
-        print(clr.BOLD + clr.O + "[~] Note: No query arguments were passed. Please supply a query to search. " + clr.END)
+        print(
+            clr.BOLD + clr.O + "[~] Note: No query arguments were passed. Please supply a query to search. " + clr.END)
+
 
 if __name__ == "__main__":
     darkdump_main()
